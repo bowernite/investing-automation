@@ -1,16 +1,41 @@
 (() => {
   // (updated 6/27/24, based on an average of GPT responses 🤷‍♂️ it really differs)
-  const portfolio = {
-    // US Stocks
-    VTI: 0.58, // curr taxable: (Primary: VTI. Holdovers: VV, SCHA)
-    // Int'l stocks
-    IXUS: 0.25, // curr taxable: (Primary: IXUS. Holdover: SPDW)
-    // US bonds
-    BND: 0.07,
-    // Int'l bonds
-    BNDX: 0.02, // alt: IAGG (iShares)
-    // Real estate
-    VNQ: 0.08,
+  interface PortfolioCategory {
+    desiredAllocation: number;
+    primarySymbol: string;
+    holdoverSymbols: string[];
+  }
+
+  interface Portfolio {
+    [category: string]: PortfolioCategory;
+  }
+
+  const portfolio: Portfolio = {
+    US_STOCKS: {
+      desiredAllocation: 0.58,
+      primarySymbol: "VTI",
+      holdoverSymbols: ["VV", "SCHA"],
+    },
+    INTL_STOCKS: {
+      desiredAllocation: 0.25,
+      primarySymbol: "IXUS",
+      holdoverSymbols: ["SPDW"],
+    },
+    REAL_ESTATE: {
+      desiredAllocation: 0.08,
+      primarySymbol: "VNQ",
+      holdoverSymbols: [],
+    },
+    US_BONDS: {
+      desiredAllocation: 0.07,
+      primarySymbol: "BND",
+      holdoverSymbols: [],
+    },
+    INTL_BONDS: {
+      desiredAllocation: 0.02,
+      primarySymbol: "BNDX",
+      holdoverSymbols: [],
+    },
   };
 
   const ALLOCATION_TOLERANCE = 0.0001;
@@ -37,27 +62,102 @@
       positionRows,
     });
 
-    const outputString = Array.from(positionRows).reduce((output, row) => {
-      const { symbol, price, marketValue } = getPositionData(row);
-      console.log({ symbol, price, marketValue });
+    const positionData = Array.from(positionRows).map(getPositionData);
+    const categoryTotals = calculateCategoryTotals(positionData);
 
-      const { action, amountToTrade, sharesToTrade, desiredAllocation } =
-        calculateTradeAction(symbol, marketValue, price, desiredAccountValue);
+    const outputString = Object.entries(portfolio).reduce(
+      (output, [category, details]) => {
+        const { primarySymbol, holdoverSymbols } = details;
+        const currentValue = categoryTotals[category] || 0;
+        const desiredValue = details.desiredAllocation * desiredAccountValue;
+        const difference = desiredValue - currentValue;
 
-      return (
-        output +
-        generateOutputString(
-          symbol,
-          action,
-          sharesToTrade,
-          price,
-          amountToTrade,
-          desiredAllocation
-        )
-      );
-    }, "");
+        const action = difference >= 0 ? "BUY" : "SELL";
+        if (action === "BUY") {
+          return (
+            output +
+            handleBuyForCategory(
+              primarySymbol,
+              difference,
+              desiredValue,
+              positionData
+            )
+          );
+        } else {
+          return (
+            output +
+            handleSellForCategory(
+              category,
+              primarySymbol,
+              holdoverSymbols,
+              difference,
+              desiredValue,
+              positionData
+            )
+          );
+        }
+      },
+      ""
+    );
 
     alert(outputString);
+  }
+
+  function handleBuyForCategory(
+    primarySymbol: string,
+    difference: number,
+    desiredValue: number,
+    positionData: Array<{ symbol: string; price: number; marketValue: number }>
+  ): string {
+    const { price } = positionData.find((p) => p.symbol === primarySymbol) || {
+      price: 0,
+    };
+    const sharesToBuy = Math.floor(difference / price);
+    return `${primarySymbol}: BUY ${sharesToBuy} shares at $${price.toFixed(2)}
+    Trying to BUY ${formatCurrency(difference)}
+    Target Allocation: ${formatCurrency(desiredValue)}
+
+`;
+  }
+
+  function handleSellForCategory(
+    category: string,
+    primarySymbol: string,
+    holdoverSymbols: string[],
+    difference: number,
+    desiredValue: number,
+    positionData: Array<{ symbol: string; price: number; marketValue: number }>
+  ): string {
+    const sellCandidates = [...holdoverSymbols, primarySymbol];
+    let remainingToSell = -difference;
+    let sellOutput = "";
+
+    for (const symbol of sellCandidates) {
+      const position = positionData.find((p) => p.symbol === symbol);
+      if (position && position.marketValue > 0) {
+        const sharesToSell = Math.min(
+          Math.floor(remainingToSell / position.price),
+          Math.floor(position.marketValue / position.price)
+        );
+        const amountToSell = sharesToSell * position.price;
+        sellOutput += `${symbol}: SELL ${sharesToSell} shares at $${position.price.toFixed(
+          2
+        )}
+    Trying to SELL ${formatCurrency(amountToSell)}
+    Target Allocation: ${formatCurrency(desiredValue)}
+
+`;
+        remainingToSell -= amountToSell;
+        if (remainingToSell <= 0) break;
+      }
+    }
+
+    return (
+      sellOutput +
+      `WARNING: Selling in ${category} category. Please review lot details before proceeding with the sale.
+
+`
+    );
   }
 
   function getAmountToSell(): number {
@@ -70,11 +170,9 @@
     return sellInput ? parseFloat(sellInput) : 0;
   }
 
-  function validatePortfolioAllocation(
-    portfolio: Record<string, number>
-  ): void {
+  function validatePortfolioAllocation(portfolio: Portfolio): void {
     const totalAllocation = Object.values(portfolio).reduce(
-      (sum, value) => sum + value,
+      (sum, { desiredAllocation }) => sum + desiredAllocation,
       0
     );
     if (Math.abs(totalAllocation - 1) > ALLOCATION_TOLERANCE) {
@@ -125,34 +223,19 @@
     return { symbol, price, marketValue };
   }
 
-  function calculateTradeAction(
-    symbol: string,
-    marketValue: number,
-    price: number,
-    desiredAccountValue: number
+  function calculateCategoryTotals(
+    positionData: Array<{ symbol: string; marketValue: number }>
   ) {
-    const desiredAllocation = (portfolio[symbol] || 0) * desiredAccountValue;
-    const difference = desiredAllocation - marketValue;
-    const action = difference >= 0 ? "BUY" : "SELL";
-    const amountToTrade = Math.abs(difference);
-    const sharesToTrade = Math.floor(amountToTrade / price);
-
-    return { action, amountToTrade, sharesToTrade, desiredAllocation };
-  }
-
-  function generateOutputString(
-    symbol: string,
-    action: string,
-    sharesToTrade: number,
-    price: number,
-    amountToTrade: number,
-    desiredAllocation: number
-  ): string {
-    return `${symbol}: ${action} ${sharesToTrade} shares at $${price.toFixed(2)}
-    Trying to ${action} ${formatCurrency(amountToTrade)}
-    Target Allocation: ${formatCurrency(desiredAllocation)}
-
-`;
+    return Object.entries(portfolio).reduce((totals, [category, details]) => {
+      const categorySymbols = [
+        details.primarySymbol,
+        ...details.holdoverSymbols,
+      ];
+      totals[category] = positionData
+        .filter((p) => categorySymbols.includes(p.symbol))
+        .reduce((sum, p) => sum + p.marketValue, 0);
+      return totals;
+    }, {} as Record<string, number>);
   }
 
   function findHighLevelElements() {
