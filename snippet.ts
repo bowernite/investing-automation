@@ -15,41 +15,44 @@
 
   const ALLOCATION_TOLERANCE = 0.0001;
 
-  const main = () => {
+  main();
+
+  function main() {
     const amountToSell = getAmountToSell();
-    console.log("Amount to sell:", amountToSell);
 
     validatePortfolioAllocation(portfolio);
 
-    const table = getElement<HTMLTableElement>("table");
-    const accountValue = parseCellCash(
-      getElement("#accountSummary-Lbl_AccountValue-totalValue")
-    );
-    console.log("Account value:", accountValue);
-
+    const table =
+      getElement<HTMLTableElement>("table") ||
+      getElement<HTMLTableElement>(".sdps-table");
+    if (!table) throw new Error("Table not found");
+    const accountValueElement =
+      getElement("#accountSummary-Lbl_AccountValue-totalValue") ||
+      getElement("[id$='AccountValue-totalValue']") ||
+      getElement(".sdps-display-value__value");
+    const accountValue = parseCellCash(accountValueElement);
     const desiredAccountValue = accountValue - amountToSell;
-    console.log("Desired account value:", desiredAccountValue);
-
-    const cashAvailable = parseCellCash(
-      getElement("#accountSummary-Lbl_CashSymbol-totalValue")
-    );
-    console.log("Cash available:", cashAvailable);
-
+    const cashAvailableElement =
+      getElement("#accountSummary-Lbl_CashSymbol-totalValue") ||
+      getElement("[id$='CashSymbol-totalValue']") ||
+      getElement(".sdps-display-value__value:nth-of-type(2)");
+    const cashAvailable = parseCellCash(cashAvailableElement);
     const positionRows = table.querySelectorAll<HTMLElement>(
-      '.position-row:not([id^="Cash"])'
+      '.position-row:not([id^="Cash"]), tr[appholdingsrow]:not([id^="Cash"])'
     );
-    console.log("Position rows:", positionRows);
+
+    console.log({
+      amountToSell,
+      accountValue,
+      desiredAccountValue,
+      cashAvailable,
+      table,
+      positionRows,
+    });
 
     const outputString = Array.from(positionRows).reduce((output, row) => {
       const { symbol, price, marketValue } = getPositionData(row);
-      console.log(
-        "Symbol:",
-        symbol,
-        "Price:",
-        price,
-        "Market value:",
-        marketValue
-      );
+      console.log({ symbol, price, marketValue });
 
       const { action, amountToTrade, sharesToTrade, desiredAllocation } =
         calculateTradeAction(symbol, marketValue, price, desiredAccountValue);
@@ -68,9 +71,7 @@
     }, "");
 
     alert(outputString);
-  };
-
-  main();
+  }
 
   function getAmountToSell(): number {
     const isSelling = confirm(
@@ -94,13 +95,12 @@
     }
   }
 
-  function getElement<T extends HTMLElement>(selector: string): T {
-    const element = document.querySelector<T>(selector);
-    if (!element) throw new Error(`Element not found: ${selector}`);
-    return element;
+  function getElement<T extends HTMLElement>(selector: string): T | null {
+    return document.querySelector<T>(selector);
   }
 
-  function parseCellCash(cell: HTMLElement): number {
+  function parseCellCash(cell: HTMLElement | null): number {
+    if (!cell) return 0;
     cell.querySelector("sup")?.remove();
     const cashText = cell.textContent?.trim() || "0";
     return parseFloat(cashText.replace(/[$,]/g, ""));
@@ -116,18 +116,22 @@
   }
 
   function getPositionData(row: HTMLElement) {
-    const symbolCell = row.querySelector<HTMLElement>(".symbolColumn");
+    const symbolCell =
+      row.querySelector<HTMLElement>(".symbolColumn") ||
+      row.querySelector<HTMLElement>("app-column-symbolname");
     if (!symbolCell || !symbolCell.textContent)
       throw new Error("Symbol cell not found");
     const symbol = symbolCell.textContent.trim();
 
-    const priceCell = row.querySelector<HTMLElement>("app-column-price");
+    const priceCell =
+      row.querySelector<HTMLElement>("app-column-price") ||
+      row.querySelector<HTMLElement>("[id^='priceColumn']");
     if (!priceCell) throw new Error("Price cell not found");
     const price = parseCellCash(priceCell);
 
-    const marketValueCell = row.querySelector<HTMLElement>(
-      "app-column-marketvalue"
-    );
+    const marketValueCell =
+      row.querySelector<HTMLElement>("app-column-marketvalue") ||
+      row.querySelector<HTMLElement>("[id^='marketValueColumn']");
     if (!marketValueCell) throw new Error("Market value cell not found");
     const marketValue = parseCellCash(marketValueCell);
 
