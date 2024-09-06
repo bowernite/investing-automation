@@ -22,24 +22,11 @@
 
     validatePortfolioAllocation(portfolio);
 
-    const table =
-      getElement<HTMLTableElement>("table") ||
-      getElement<HTMLTableElement>(".sdps-table");
-    if (!table) throw new Error("Table not found");
-    const accountValueElement =
-      getElement("#accountSummary-Lbl_AccountValue-totalValue") ||
-      getElement("[id$='AccountValue-totalValue']") ||
-      getElement(".sdps-display-value__value");
+    const { table, accountValueElement, cashAvailableElement, positionRows } =
+      findHighLevelElements();
     const accountValue = parseCellCash(accountValueElement);
-    const desiredAccountValue = accountValue - amountToSell;
-    const cashAvailableElement =
-      getElement("#accountSummary-Lbl_CashSymbol-totalValue") ||
-      getElement("[id$='CashSymbol-totalValue']") ||
-      getElement(".sdps-display-value__value:nth-of-type(2)");
     const cashAvailable = parseCellCash(cashAvailableElement);
-    const positionRows = table.querySelectorAll<HTMLElement>(
-      '.position-row:not([id^="Cash"]), tr[appholdingsrow]:not([id^="Cash"])'
-    );
+    const desiredAccountValue = accountValue - amountToSell;
 
     console.log({
       amountToSell,
@@ -166,5 +153,28 @@
     Target Allocation: ${formatCurrency(desiredAllocation)}
 
 `;
+  }
+
+  function findHighLevelElements() {
+    const table =
+      getElement<HTMLTableElement>("table") ||
+      getElement<HTMLTableElement>(".sdps-table");
+    if (!table) throw new Error("Table not found");
+
+    const accountValueElement =
+      getElement("#accountSummary-Lbl_AccountValue-totalValue") ||
+      getElement("[id$='AccountValue-totalValue']") ||
+      getElement(".sdps-display-value__value");
+
+    const cashAvailableElement =
+      getElement("#accountSummary-Lbl_CashSymbol-totalValue") ||
+      getElement("[id$='CashSymbol-totalValue']") ||
+      getElement(".sdps-display-value__value:nth-of-type(2)");
+
+    const positionRows = table.querySelectorAll<HTMLElement>(
+      '.position-row:not([id^="Cash"]), tr[appholdingsrow]:not([id^="Cash"])'
+    );
+
+    return { table, accountValueElement, cashAvailableElement, positionRows };
   }
 })();
