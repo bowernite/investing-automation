@@ -1,5 +1,5 @@
 {
-  "name": "schwab-snippet",
+  "name": "investing-automation",
   "module": "snippet.ts",
   "type": "module",
   "devDependencies": {
