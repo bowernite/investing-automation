@@ -162,28 +162,24 @@ function displayResults(
       })\n`;
 
       const emoji = allocationDifference > 0 ? "🔼" : "🔽";
-      allocationWarning += `${emoji} ${category}:\n`;
-      allocationWarning += `   Current: ${(currentAllocation * 100).toFixed(
-        2
-      )}%\n`;
-      allocationWarning += `   Desired: ${(desiredAllocation * 100).toFixed(
-        2
-      )}%\n`;
-      allocationWarning += `   Difference: ${
-        allocationDifference > 0 ? "+" : ""
-      }${(allocationDifference * 100).toFixed(2)}%\n\n`;
+      allocationWarning += `${emoji} ${category}:
+   Current: ${(currentAllocation * 100).toFixed(2)}%
+   Desired: ${(desiredAllocation * 100).toFixed(2)}%
+   Difference: ${allocationDifference > 0 ? "+" : ""}${(
+        allocationDifference * 100
+      ).toFixed(2)}%
+
+`;
 
       actions.forEach(({ symbol, action, shares, price, amount }) => {
         const color = action === "BUY" ? "🟢" : "🔴";
         outputString += `${color} ${symbol}: ${action} ${shares} shares at $${price.toFixed(
           2
-        )}\n`;
-        outputString += `    💰 Trying to ${action} ${formatCurrency(
-          amount
-        )}\n`;
-        outputString += `    🎯 Target Allocation: ${formatCurrency(
-          desiredAllocation
-        )}\n\n`;
+        )}
+    💰 Trying to ${action} ${formatCurrency(amount)}
+    🎯 Target Allocation: ${formatCurrency(desiredAllocation)}
+
+`;
       });
 
       if (actions.some(({ action }) => action === "SELL")) {
