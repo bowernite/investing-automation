@@ -216,7 +216,13 @@ function displayResults(
   const instructionsTable = instructions.flatMap((summary) =>
     createInstructionRows(summary, desiredAccountValue)
   );
-  console.table(instructionsTable);
+  console.table(
+    instructionsTable.reduce((acc, row) => {
+      acc[row.Category] = { ...row };
+      delete acc[row.Category].Category;
+      return acc;
+    }, {})
+  );
 }
 
 function createInstructionRows(
@@ -242,16 +248,14 @@ function createInstructionRows(
 function createBaseRow(summary: CategorySummary) {
   return {
     Category: summary.category,
-    "Primary Symbol": PORTFOLIO[summary.category].primarySymbol,
-    "Current Allocation": `${(summary.currentAllocation * 100).toFixed(2)}%`,
-    "Desired Allocation": `${(summary.desiredAllocation * 100).toFixed(2)}%`,
-    "Resulting Allocation": `${(summary.resultingAllocation * 100).toFixed(
-      2
-    )}%`,
-    "Allocation Difference": `${(
-      (summary.resultingAllocation - summary.currentAllocation) *
-      100
-    ).toFixed(2)}%`,
+    // "Primary Symbol": PORTFOLIO[summary.category].primarySymbol,
+    "Current %": Number(summary.currentAllocation.toFixed(2)),
+    "Desired %": Number(summary.desiredAllocation.toFixed(2)),
+    "Resulting %": Number(summary.resultingAllocation.toFixed(2)),
+    // "Allocation Difference": `${(
+    //   (summary.resultingAllocation - summary.currentAllocation) *
+    //   100
+    // ).toFixed(2)}%`,
   };
 }
 
@@ -265,12 +269,12 @@ function createActionRow(
     ...baseRow,
     Symbol: action.symbol,
     Action: `${action.action === "BUY" ? "🟢" : "🔴"} ${action.action}`,
-    Shares: action.shares.toFixed(4),
-    Price: `$${action.price.toFixed(2)}`,
+    Shares: Number(action.shares.toFixed(2)),
+    // Price: `$${action.price.toFixed(2)}`,
     Amount: formatCurrency(action.amount),
-    "Target Allocation": formatCurrency(
-      desiredAllocation * desiredAccountValue
-    ),
+    // "Target Allocation": formatCurrency(
+    //   desiredAllocation * desiredAccountValue
+    // ),
   };
 }
 

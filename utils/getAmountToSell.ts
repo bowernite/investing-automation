@@ -1,6 +1,6 @@
 export function getAmountToSell(): number {
   const userInput = prompt(
-    "Would you like to withdraw money from your taxable account? (Type 'y' for yes)"
+    "Do you need to withdraw money? (Type 'y' for yes)"
   );
   const isSelling = userInput?.toLowerCase() === "y";
   if (!isSelling) return 0;
