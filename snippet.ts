@@ -213,9 +213,9 @@ function displayResults(
   desiredAccountValue: number
 ) {
   console.log("🎯 Portfolio Allocation and Actions:");
-  const instructionsTable = instructions.flatMap((summary) =>
-    createInstructionRows(summary, desiredAccountValue)
-  );
+  const instructionsTable = instructions
+    .flatMap((summary) => createInstructionRows(summary, desiredAccountValue))
+    .sort((a, b) => a.Symbol.localeCompare(b.Symbol));
   console.table(
     instructionsTable.reduce((acc, row) => {
       acc[row.Category] = { ...row };
@@ -266,7 +266,6 @@ function createActionRow(
   desiredAccountValue: number
 ) {
   return {
-    ...baseRow,
     Symbol: action.symbol,
     Action: `${action.action === "BUY" ? "🟢" : "🔴"} ${action.action}`,
     Shares: Number(action.shares.toFixed(2)),
@@ -275,6 +274,7 @@ function createActionRow(
     // "Target Allocation": formatCurrency(
     //   desiredAllocation * desiredAccountValue
     // ),
+    ...baseRow,
   };
 }
 
