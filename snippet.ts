@@ -5,11 +5,13 @@ import {
   validatePortfolioAllocation,
   PORTFOLIO,
   type Portfolio,
+  type AssetClass,
 } from "./utils/portfolio";
 import {
   findHighLevelElements,
   getPositionData,
   parseCellCash,
+  isTaxableAccount,
 } from "./utils/selectors";
 
 interface PositionData {
@@ -32,9 +34,26 @@ interface CategorySummary {
   desiredAllocation: number;
   allocationDifference: number;
   actions: CategoryAction[];
+  resultingAllocation: number;
 }
 
 function main() {
+  const { accountValue, desiredAccountValue, positionData, isWithdrawing } =
+    getInitialData();
+  const assetClassTotals = calculateAssetClassTotals(positionData);
+  const instructions = generateInstructions(
+    accountValue,
+    desiredAccountValue,
+    positionData,
+    assetClassTotals,
+    isWithdrawing
+  );
+
+  displayResults(instructions, desiredAccountValue);
+  showNotification();
+}
+
+function getInitialData() {
   const amountToSell = getAmountToSell();
   const isWithdrawing = amountToSell > 0;
 
@@ -43,32 +62,19 @@ function main() {
   const { accountValueElement, positionRows } = findHighLevelElements();
   const accountValue = parseCellCash(accountValueElement);
   const desiredAccountValue = accountValue - amountToSell;
-
   const positionData = Array.from(positionRows).map(getPositionData);
-  const assetClassTotals = calculateAssetClassTotals(positionData);
 
-  const categorySummaries = generateCategorySummaries(
-    PORTFOLIO,
-    assetClassTotals,
-    accountValue,
-    desiredAccountValue,
-    positionData,
-    isWithdrawing
-  );
-
-  displayResults(categorySummaries, isWithdrawing);
-  showNotification();
+  return { accountValue, desiredAccountValue, positionData, isWithdrawing };
 }
 
-function generateCategorySummaries(
-  portfolio: Portfolio,
-  assetClassTotals: Record<string, number>,
+function generateInstructions(
   accountValue: number,
   desiredAccountValue: number,
   positionData: PositionData[],
+  assetClassTotals: Record<string, number>,
   isWithdrawing: boolean
 ): CategorySummary[] {
-  return Object.entries(portfolio).map(([category, details]) => {
+  return Object.entries(PORTFOLIO).map(([category, details]) => {
     const currentValue = assetClassTotals[category] || 0;
     const desiredValue = details.desiredAllocation * desiredAccountValue;
     const difference = desiredValue - currentValue;
@@ -77,12 +83,16 @@ function generateCategorySummaries(
     const desiredAllocation = details.desiredAllocation;
     const allocationDifference = desiredAllocation - currentAllocation;
 
-    const actions = generateCategoryActions(
+    const actions = generateAssetClassActions(
       details,
       difference,
       positionData,
-      isWithdrawing
+      isWithdrawing,
+      isTaxableAccount()
     );
+
+    const resultingValue = calculateResultingValue(currentValue, actions);
+    const resultingAllocation = resultingValue / desiredAccountValue;
 
     return {
       category,
@@ -90,133 +100,197 @@ function generateCategorySummaries(
       desiredAllocation,
       allocationDifference,
       actions,
+      resultingAllocation,
     };
   });
 }
 
-function generateCategoryActions(
-  details: Portfolio[keyof Portfolio],
+function calculateResultingValue(
+  currentValue: number,
+  actions: CategoryAction[]
+): number {
+  return (
+    currentValue +
+    actions.reduce((sum, action) => {
+      return sum + (action.action === "BUY" ? action.amount : -action.amount);
+    }, 0)
+  );
+}
+
+function generateAssetClassActions(
+  details: AssetClass,
   difference: number,
   positionData: PositionData[],
-  isWithdrawing: boolean
+  isWithdrawing: boolean,
+  isTaxableAccount: boolean
 ): CategoryAction[] {
-  const actions: CategoryAction[] = [];
-
   if (difference >= 0) {
-    const { price } = positionData.find(
-      (p) => p.symbol === details.primarySymbol
-    ) || { price: 0 };
-    const sharesToBuy = Math.floor(difference / price);
-    actions.push({
+    return generateBuyAction(details, difference, positionData);
+  }
+
+  if (isTaxableAccount && !isWithdrawing) {
+    console.warn(
+      `👷🏼 Ignoring taxable account sells for "${details.class}" (${
+        details.primarySymbol
+      }, ${details.holdoverSymbols.join(", ")})`
+    );
+    return [];
+  }
+
+  return generateSellActions(
+    details,
+    -difference,
+    positionData,
+    isTaxableAccount
+  );
+}
+
+function generateBuyAction(
+  details: AssetClass,
+  amount: number,
+  positionData: PositionData[]
+): CategoryAction[] {
+  const { price = 0 } =
+    positionData.find((p) => p.symbol === details.primarySymbol) || {};
+  const sharesToBuy = amount / price;
+  return [
+    {
       symbol: details.primarySymbol,
       action: "BUY",
       shares: sharesToBuy,
       price,
       amount: sharesToBuy * price,
-    });
-  } else if (isWithdrawing) {
-    const sellCandidates = [...details.holdoverSymbols, details.primarySymbol];
-    let remainingToSell = -difference;
+    },
+  ];
+}
 
-    for (const symbol of sellCandidates) {
-      const position = positionData.find((p) => p.symbol === symbol);
-      if (position && position.marketValue > 0) {
-        const sharesToSell = Math.min(
-          Math.floor(remainingToSell / position.price),
-          Math.floor(position.marketValue / position.price)
-        );
-        const amountToSell = sharesToSell * position.price;
-        actions.push({
-          symbol,
-          action: "SELL",
-          shares: sharesToSell,
-          price: position.price,
-          amount: amountToSell,
-        });
-        remainingToSell -= amountToSell;
-        if (remainingToSell <= 0) break;
-      }
-    }
+function generateSellActions(
+  details: AssetClass,
+  amountToSell: number,
+  positionData: PositionData[],
+  isTaxableAccount: boolean
+): CategoryAction[] {
+  if (isTaxableAccount && details.holdoverSymbols.length) {
+    console.warn(
+      "👷🏼 Suggesting a sell in a taxable account with holdover positions. Consider tax implications."
+    );
+  }
+
+  const sellCandidates = isTaxableAccount
+    ? [...details.holdoverSymbols, details.primarySymbol]
+    : [details.primarySymbol];
+
+  const actions: CategoryAction[] = [];
+  let remainingToSell = amountToSell;
+
+  for (const symbol of sellCandidates) {
+    const position = positionData.find((p) => p.symbol === symbol);
+    if (!position || position.marketValue <= 0) continue;
+
+    const sharesToSell = Math.min(
+      remainingToSell / position.price,
+      position.marketValue / position.price
+    );
+    const amountToSellForSymbol = sharesToSell * position.price;
+
+    actions.push({
+      symbol,
+      action: "SELL",
+      shares: sharesToSell,
+      price: position.price,
+      amount: amountToSellForSymbol,
+    });
+
+    remainingToSell -= amountToSellForSymbol;
+    if (remainingToSell <= 0) break;
   }
 
   return actions;
 }
 
 function displayResults(
-  categorySummaries: CategorySummary[],
-  isWithdrawing: boolean
+  instructions: CategorySummary[],
+  desiredAccountValue: number
 ) {
-  let outputString = "🎯 Desired Portfolio Allocation:\n\n";
-  let allocationWarning = "📊 Portfolio Allocation Summary:\n\n";
-
-  categorySummaries.forEach(
-    ({
-      category,
-      currentAllocation,
-      desiredAllocation,
-      allocationDifference,
-      actions,
-    }) => {
-      outputString += `${category}: ${(desiredAllocation * 100).toFixed(2)}% (${
-        PORTFOLIO[category].primarySymbol
-      })\n`;
-
-      const emoji = allocationDifference > 0 ? "🔼" : "🔽";
-      allocationWarning += `${emoji} ${category}:
-   Current: ${(currentAllocation * 100).toFixed(2)}%
-   Desired: ${(desiredAllocation * 100).toFixed(2)}%
-   Difference: ${allocationDifference > 0 ? "+" : ""}${(
-        allocationDifference * 100
-      ).toFixed(2)}%
-
-`;
-
-      actions.forEach(({ symbol, action, shares, price, amount }) => {
-        const color = action === "BUY" ? "🟢" : "🔴";
-        outputString += `${color} ${symbol}: ${action} ${shares} shares at $${price.toFixed(
-          2
-        )}
-    💰 Trying to ${action} ${formatCurrency(amount)}
-    🎯 Target Allocation: ${formatCurrency(desiredAllocation)}
-
-`;
-      });
-
-      if (actions.some(({ action }) => action === "SELL")) {
-        outputString += `⚠️ WARNING: Selling in ${category} category. Please review lot details before proceeding with the sale.\n\n`;
-      }
-    }
+  console.log("🎯 Portfolio Allocation and Actions:");
+  const instructionsTable = instructions.flatMap((summary) =>
+    createInstructionRows(summary, desiredAccountValue)
   );
+  console.table(instructionsTable);
+}
 
-  if (!isWithdrawing) {
-    outputString =
-      "ℹ️ No sells suggested as you're not withdrawing.\n\n" + outputString;
+function createInstructionRows(
+  summary: CategorySummary,
+  desiredAccountValue: number
+) {
+  const baseRow = createBaseRow(summary);
+
+  if (summary.actions.length === 0) {
+    return [{ ...baseRow, Action: "✋ No action" }];
   }
 
-  allocationWarning =
-    "\n⚠️ Warning: Portfolio allocation after following instructions:\n" +
-    allocationWarning;
+  return summary.actions.map((action) =>
+    createActionRow(
+      baseRow,
+      action,
+      summary.desiredAllocation,
+      desiredAccountValue
+    )
+  );
+}
 
-  console.log(outputString);
-  console.warn(allocationWarning);
+function createBaseRow(summary: CategorySummary) {
+  return {
+    Category: summary.category,
+    "Primary Symbol": PORTFOLIO[summary.category].primarySymbol,
+    "Current Allocation": `${(summary.currentAllocation * 100).toFixed(2)}%`,
+    "Desired Allocation": `${(summary.desiredAllocation * 100).toFixed(2)}%`,
+    "Resulting Allocation": `${(summary.resultingAllocation * 100).toFixed(
+      2
+    )}%`,
+    "Allocation Difference": `${(
+      (summary.resultingAllocation - summary.currentAllocation) *
+      100
+    ).toFixed(2)}%`,
+  };
+}
+
+function createActionRow(
+  baseRow: any,
+  action: CategoryAction,
+  desiredAllocation: number,
+  desiredAccountValue: number
+) {
+  return {
+    ...baseRow,
+    Symbol: action.symbol,
+    Action: `${action.action === "BUY" ? "🟢" : "🔴"} ${action.action}`,
+    Shares: action.shares.toFixed(4),
+    Price: `$${action.price.toFixed(2)}`,
+    Amount: formatCurrency(action.amount),
+    "Target Allocation": formatCurrency(
+      desiredAllocation * desiredAccountValue
+    ),
+  };
 }
 
 function showNotification() {
   if (Notification.permission === "granted") {
-    new Notification("Portfolio Rebalancing", {
-      body: "Rebalancing instructions generated successfully.",
-      icon: "path/to/icon.png", // Replace with actual path if you have an icon
-    });
+    createNotification();
   } else if (Notification.permission !== "denied") {
     Notification.requestPermission().then((permission) => {
       if (permission === "granted") {
-        new Notification("Portfolio Rebalancing", {
-          body: "Rebalancing instructions generated successfully.",
-          icon: "path/to/icon.png", // Replace with actual path if you have an icon
-        });
+        createNotification();
       }
     });
   }
+}
+
+function createNotification() {
+  new Notification("Portfolio Rebalancing", {
+    body: "Rebalancing instructions generated successfully.",
+    icon: "path/to/icon.png", // Replace with actual path if you have an icon
+  });
 }
 
 main();

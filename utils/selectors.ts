@@ -21,6 +21,24 @@ export function findHighLevelElements() {
   return { table, accountValueElement, cashAvailableElement, positionRows };
 }
 
+export function isTaxableAccount() {
+  // Check for elements that indicate a taxable account
+  const taxableIndicators = [
+    getElement<HTMLElement>("#account-selector-label"),
+    getElement<HTMLElement>("#account-selector"),
+  ];
+
+  for (const indicator of taxableIndicators) {
+    if (indicator && indicator.textContent) {
+      const accountTypeText = indicator.textContent.toLowerCase();
+      if (accountTypeText.includes("taxable account")) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function getElement<T extends HTMLElement>(selector: string): T | null {
   return document.querySelector<T>(selector);
 }
