@@ -93,15 +93,15 @@ function generateSellActions(
   currentHoldings: Holding[],
   isTaxableAccount: boolean
 ): AssetClassAction[] {
+  const sellCandidates = isTaxableAccount
+    ? [...details.holdoverSymbols, details.primarySymbol]
+    : [details.primarySymbol];
+
   if (isTaxableAccount && details.holdoverSymbols.length) {
     console.warn(
       "👷🏼 Suggesting a sell in a taxable account with holdover positions. Consider tax implications."
     );
   }
-
-  const sellCandidates = isTaxableAccount
-    ? [...details.holdoverSymbols, details.primarySymbol]
-    : [details.primarySymbol];
 
   const actions: AssetClassAction[] = [];
   let remainingToSell = amountToSell;
