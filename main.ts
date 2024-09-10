@@ -13,29 +13,6 @@ import {
   isTaxableAccount,
 } from "./utils/selectors";
 
-interface PositionData {
-  symbol: string;
-  price: number;
-  marketValue: number;
-}
-
-interface CategoryAction {
-  symbol: string;
-  action: "BUY" | "SELL";
-  shares: number;
-  price: number;
-  amount: number;
-}
-
-interface CategorySummary {
-  category: string;
-  currentAllocation: number;
-  desiredAllocation: number;
-  allocationDifference: number;
-  actions: CategoryAction[];
-  resultingAllocation: number;
-}
-
 function main() {
   const { accountValue, desiredAccountValue, positionData, isWithdrawing } =
     getInitialData();
@@ -297,3 +274,26 @@ function createNotification() {
 }
 
 main();
+
+interface PositionData {
+  symbol: string;
+  price: number;
+  marketValue: number;
+}
+
+interface CategoryAction {
+  symbol: string;
+  action: "BUY" | "SELL";
+  shares: number;
+  price: number;
+  amount: number;
+}
+
+interface CategorySummary {
+  category: string;
+  currentAllocation: number;
+  desiredAllocation: number;
+  allocationDifference: number;
+  actions: CategoryAction[];
+  resultingAllocation: number;
+}
