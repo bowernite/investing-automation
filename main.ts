@@ -4,7 +4,6 @@ import { getAmountToSell } from "./utils/getAmountToSell";
 import {
   validatePortfolioAllocation,
   PORTFOLIO,
-  type Portfolio,
   type AssetClass,
 } from "./utils/portfolio";
 import {
