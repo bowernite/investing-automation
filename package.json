@@ -1,6 +1,6 @@
 {
   "name": "investing-automation",
-  "module": "snippet.ts",
+  "module": "main.ts",
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest"

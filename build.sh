@@ -40,9 +40,9 @@ TEMP_DIR=$(mktemp -d)
 TEMP_JS_FILE="$TEMP_DIR/temp.js"
 
 log_step "🔎 Determining TypeScript file to transpile"
-# Check for snippet.ts, then package.json entrypoint, then index.ts
-if [ -f "./snippet.ts" ]; then
-  TS_FILE="./snippet.ts"
+# Check for main.ts, then package.json entrypoint, then index.ts
+if [ -f "./main.ts" ]; then
+  TS_FILE="./main.ts"
 elif [ -f "./package.json" ]; then
   ENTRYPOINT=$(node -p "require('./package.json').main")
   if [ -n "$ENTRYPOINT" ] && [ -f "$ENTRYPOINT" ]; then
@@ -55,7 +55,7 @@ if [ -z "$TS_FILE" ] && [ -f "./index.ts" ]; then
 fi
 
 if [ -z "$TS_FILE" ]; then
-  echo "❌ No TypeScript file found. Please ensure snippet.ts, a valid entrypoint in package.json, or index.ts exists."
+  echo "❌ No TypeScript file found. Please ensure main.ts, a valid entrypoint in package.json, or index.ts exists."
   rm -rf "$TEMP_DIR"
   exit 1
 fi
