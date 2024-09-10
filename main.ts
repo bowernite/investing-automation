@@ -2,7 +2,6 @@ import { calculateAssetClassTotals } from "./utils/calculateAssetClassTotals";
 import { displayResults } from "./utils/displayResults";
 import { getInitialData } from "./utils/getInitialData";
 import { generateInstructions } from "./utils/instruction-engine";
-import { showNotification } from "./utils/notifications";
 
 const { accountValue, desiredAccountValue, currentHoldings, isWithdrawing } =
   getInitialData();
@@ -16,4 +15,3 @@ const instructions = generateInstructions(
 );
 
 displayResults(instructions, desiredAccountValue);
-showNotification();
