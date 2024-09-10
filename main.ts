@@ -27,7 +27,7 @@ function generateInstructions(
   currentHoldings: Holding[],
   assetClassTotals: Record<string, number>,
   isWithdrawing: boolean
-): CategorySummary[] {
+): AssetClassInstructions[] {
   return Object.entries(PORTFOLIO).map(([category, details]) => {
     const currentValue = assetClassTotals[category] || 0;
     const desiredValue = details.desiredAllocation * desiredAccountValue;
@@ -61,7 +61,7 @@ function generateInstructions(
 
 function calculateResultingValue(
   currentValue: number,
-  actions: CategoryAction[]
+  actions: AssetClassAction[]
 ): number {
   return (
     currentValue +
@@ -77,7 +77,7 @@ function generateAssetClassActions(
   currentHoldings: Holding[],
   isWithdrawing: boolean,
   isTaxableAccount: boolean
-): CategoryAction[] {
+): AssetClassAction[] {
   if (difference >= 0) {
     return generateBuyAction(details, difference, currentHoldings);
   }
@@ -103,7 +103,7 @@ function generateBuyAction(
   details: AssetClass,
   amount: number,
   currentHoldings: Holding[]
-): CategoryAction[] {
+): AssetClassAction[] {
   const { price = 0 } =
     currentHoldings.find((p) => p.symbol === details.primarySymbol) || {};
   const sharesToBuy = amount / price;
@@ -123,7 +123,7 @@ function generateSellActions(
   amountToSell: number,
   currentHoldings: Holding[],
   isTaxableAccount: boolean
-): CategoryAction[] {
+): AssetClassAction[] {
   if (isTaxableAccount && details.holdoverSymbols.length) {
     console.warn(
       "👷🏼 Suggesting a sell in a taxable account with holdover positions. Consider tax implications."
@@ -134,7 +134,7 @@ function generateSellActions(
     ? [...details.holdoverSymbols, details.primarySymbol]
     : [details.primarySymbol];
 
-  const actions: CategoryAction[] = [];
+  const actions: AssetClassAction[] = [];
   let remainingToSell = amountToSell;
 
   for (const symbol of sellCandidates) {
@@ -163,7 +163,7 @@ function generateSellActions(
 }
 
 function displayResults(
-  instructions: CategorySummary[],
+  instructions: AssetClassInstructions[],
   desiredAccountValue: number
 ) {
   console.log("🎯 Portfolio Allocation and Actions:");
@@ -180,7 +180,7 @@ function displayResults(
 }
 
 function createInstructionRows(
-  summary: CategorySummary,
+  summary: AssetClassInstructions,
   desiredAccountValue: number
 ) {
   const baseRow = createBaseRow(summary);
@@ -199,7 +199,7 @@ function createInstructionRows(
   );
 }
 
-function createBaseRow(summary: CategorySummary) {
+function createBaseRow(summary: AssetClassInstructions) {
   return {
     Category: summary.category,
     // "Primary Symbol": PORTFOLIO[summary.category].primarySymbol,
@@ -215,7 +215,7 @@ function createBaseRow(summary: CategorySummary) {
 
 function createActionRow(
   baseRow: any,
-  action: CategoryAction,
+  action: AssetClassAction,
   desiredAllocation: number,
   desiredAccountValue: number
 ) {
@@ -240,7 +240,7 @@ interface Holding {
   marketValue: number;
 }
 
-interface CategoryAction {
+interface AssetClassAction {
   symbol: string;
   action: "BUY" | "SELL";
   shares: number;
@@ -248,11 +248,11 @@ interface CategoryAction {
   amount: number;
 }
 
-interface CategorySummary {
+interface AssetClassInstructions {
   category: string;
   currentAllocation: number;
   desiredAllocation: number;
   allocationDifference: number;
-  actions: CategoryAction[];
+  actions: AssetClassAction[];
   resultingAllocation: number;
 }
