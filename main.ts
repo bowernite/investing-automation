@@ -1,17 +1,9 @@
 import { calculateAssetClassTotals } from "./utils/calculateAssetClassTotals";
 import { formatCurrency } from "./utils/formatCurrency";
-import { getAmountToSell } from "./utils/getAmountToSell";
-import {
-  validatePortfolioAllocation,
-  PORTFOLIO,
-  type AssetClass,
-} from "./utils/portfolio";
-import {
-  findHighLevelElements,
-  getPositionData,
-  parseCellCash,
-  isTaxableAccount,
-} from "./utils/selectors";
+import { getInitialData } from "./utils/getInitialData";
+import { showNotification } from "./utils/notifications";
+import { PORTFOLIO, type AssetClass } from "./utils/portfolio";
+import { isTaxableAccount } from "./utils/selectors";
 
 function main() {
   const { accountValue, desiredAccountValue, currentHoldings, isWithdrawing } =
@@ -27,20 +19,6 @@ function main() {
 
   displayResults(instructions, desiredAccountValue);
   showNotification();
-}
-
-function getInitialData() {
-  const amountToSell = getAmountToSell();
-  const isWithdrawing = amountToSell > 0;
-
-  validatePortfolioAllocation(PORTFOLIO);
-
-  const { accountValueElement, positionRows } = findHighLevelElements();
-  const accountValue = parseCellCash(accountValueElement);
-  const desiredAccountValue = accountValue - amountToSell;
-  const currentHoldings = Array.from(positionRows).map(getPositionData);
-
-  return { accountValue, desiredAccountValue, currentHoldings, isWithdrawing };
 }
 
 function generateInstructions(
@@ -252,25 +230,6 @@ function createActionRow(
     // ),
     ...baseRow,
   };
-}
-
-function showNotification() {
-  if (Notification.permission === "granted") {
-    createNotification();
-  } else if (Notification.permission !== "denied") {
-    Notification.requestPermission().then((permission) => {
-      if (permission === "granted") {
-        createNotification();
-      }
-    });
-  }
-}
-
-function createNotification() {
-  new Notification("Portfolio Rebalancing", {
-    body: "Rebalancing instructions generated successfully.",
-    icon: "path/to/icon.png", // Replace with actual path if you have an icon
-  });
 }
 
 main();
