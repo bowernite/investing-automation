@@ -14,13 +14,13 @@ import {
 } from "./utils/selectors";
 
 function main() {
-  const { accountValue, desiredAccountValue, positionData, isWithdrawing } =
+  const { accountValue, desiredAccountValue, currentHoldings, isWithdrawing } =
     getInitialData();
-  const assetClassTotals = calculateAssetClassTotals(positionData);
+  const assetClassTotals = calculateAssetClassTotals(currentHoldings);
   const instructions = generateInstructions(
     accountValue,
     desiredAccountValue,
-    positionData,
+    currentHoldings,
     assetClassTotals,
     isWithdrawing
   );
@@ -38,15 +38,15 @@ function getInitialData() {
   const { accountValueElement, positionRows } = findHighLevelElements();
   const accountValue = parseCellCash(accountValueElement);
   const desiredAccountValue = accountValue - amountToSell;
-  const positionData = Array.from(positionRows).map(getPositionData);
+  const currentHoldings = Array.from(positionRows).map(getPositionData);
 
-  return { accountValue, desiredAccountValue, positionData, isWithdrawing };
+  return { accountValue, desiredAccountValue, currentHoldings, isWithdrawing };
 }
 
 function generateInstructions(
   accountValue: number,
   desiredAccountValue: number,
-  positionData: PositionData[],
+  currentHoldings: Holding[],
   assetClassTotals: Record<string, number>,
   isWithdrawing: boolean
 ): CategorySummary[] {
@@ -62,7 +62,7 @@ function generateInstructions(
     const actions = generateAssetClassActions(
       details,
       difference,
-      positionData,
+      currentHoldings,
       isWithdrawing,
       isTaxableAccount()
     );
@@ -96,12 +96,12 @@ function calculateResultingValue(
 function generateAssetClassActions(
   details: AssetClass,
   difference: number,
-  positionData: PositionData[],
+  currentHoldings: Holding[],
   isWithdrawing: boolean,
   isTaxableAccount: boolean
 ): CategoryAction[] {
   if (difference >= 0) {
-    return generateBuyAction(details, difference, positionData);
+    return generateBuyAction(details, difference, currentHoldings);
   }
 
   if (isTaxableAccount && !isWithdrawing) {
@@ -116,7 +116,7 @@ function generateAssetClassActions(
   return generateSellActions(
     details,
     -difference,
-    positionData,
+    currentHoldings,
     isTaxableAccount
   );
 }
@@ -124,10 +124,10 @@ function generateAssetClassActions(
 function generateBuyAction(
   details: AssetClass,
   amount: number,
-  positionData: PositionData[]
+  currentHoldings: Holding[]
 ): CategoryAction[] {
   const { price = 0 } =
-    positionData.find((p) => p.symbol === details.primarySymbol) || {};
+    currentHoldings.find((p) => p.symbol === details.primarySymbol) || {};
   const sharesToBuy = amount / price;
   return [
     {
@@ -143,7 +143,7 @@ function generateBuyAction(
 function generateSellActions(
   details: AssetClass,
   amountToSell: number,
-  positionData: PositionData[],
+  currentHoldings: Holding[],
   isTaxableAccount: boolean
 ): CategoryAction[] {
   if (isTaxableAccount && details.holdoverSymbols.length) {
@@ -160,7 +160,7 @@ function generateSellActions(
   let remainingToSell = amountToSell;
 
   for (const symbol of sellCandidates) {
-    const position = positionData.find((p) => p.symbol === symbol);
+    const position = currentHoldings.find((p) => p.symbol === symbol);
     if (!position || position.marketValue <= 0) continue;
 
     const sharesToSell = Math.min(
@@ -275,7 +275,7 @@ function createNotification() {
 
 main();
 
-interface PositionData {
+interface Holding {
   symbol: string;
   price: number;
   marketValue: number;
