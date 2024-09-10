@@ -1,4 +1,5 @@
 import { calculateAssetClassTotals } from "./utils/calculateAssetClassTotals";
+import { calculateResultingValue } from "./utils/calculateResultingValue";
 import { formatCurrency } from "./utils/formatCurrency";
 import { getInitialData } from "./utils/getInitialData";
 import { showNotification } from "./utils/notifications";
@@ -57,18 +58,6 @@ function generateInstructions(
       resultingAllocation,
     };
   });
-}
-
-function calculateResultingValue(
-  currentValue: number,
-  actions: AssetClassAction[]
-): number {
-  return (
-    currentValue +
-    actions.reduce((sum, action) => {
-      return sum + (action.action === "BUY" ? action.amount : -action.amount);
-    }, 0)
-  );
 }
 
 function generateAssetClassActions(
@@ -233,26 +222,3 @@ function createActionRow(
 }
 
 main();
-
-interface Holding {
-  symbol: string;
-  price: number;
-  marketValue: number;
-}
-
-interface AssetClassAction {
-  symbol: string;
-  action: "BUY" | "SELL";
-  shares: number;
-  price: number;
-  amount: number;
-}
-
-interface AssetClassInstructions {
-  category: string;
-  currentAllocation: number;
-  desiredAllocation: number;
-  allocationDifference: number;
-  actions: AssetClassAction[];
-  resultingAllocation: number;
-}
