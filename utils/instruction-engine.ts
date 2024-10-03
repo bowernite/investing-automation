@@ -1,5 +1,14 @@
+import type {
+  AssetClassAction,
+  AssetClassInstructions,
+  Holding,
+} from "../types/types";
 import { calculateResultingValue } from "./calculateResultingValue";
-import { PORTFOLIO, type AssetClass } from "./portfolio";
+import {
+  PORTFOLIO,
+  type AssetClass,
+  type AssetClassCategory,
+} from "./portfolio";
 import { isTaxableAccount } from "./selectors";
 
 export function generateInstructions(
@@ -9,35 +18,38 @@ export function generateInstructions(
   assetClassTotals: Record<string, number>,
   isWithdrawing: boolean
 ): AssetClassInstructions[] {
-  return Object.entries(PORTFOLIO).map(([category, details]) => {
-    const currentValue = assetClassTotals[category] || 0;
-    const desiredValue = details.desiredAllocation * desiredAccountValue;
-    const difference = desiredValue - currentValue;
+  return Object.entries(PORTFOLIO).map(
+    ([category, details]): AssetClassInstructions => {
+      const assetClassCategory = category as AssetClassCategory;
+      const currentValue = assetClassTotals[assetClassCategory] || 0;
+      const desiredValue = details.desiredAllocation * desiredAccountValue;
+      const difference = desiredValue - currentValue;
 
-    const currentAllocation = currentValue / accountValue;
-    const desiredAllocation = details.desiredAllocation;
-    const allocationDifference = desiredAllocation - currentAllocation;
+      const currentAllocation = currentValue / accountValue;
+      const desiredAllocation = details.desiredAllocation;
+      const allocationDifference = desiredAllocation - currentAllocation;
 
-    const actions = generateAssetClassActions(
-      details,
-      difference,
-      currentHoldings,
-      isWithdrawing,
-      isTaxableAccount()
-    );
+      const actions = generateAssetClassActions(
+        details,
+        difference,
+        currentHoldings,
+        isWithdrawing,
+        isTaxableAccount()
+      );
 
-    const resultingValue = calculateResultingValue(currentValue, actions);
-    const resultingAllocation = resultingValue / desiredAccountValue;
+      const resultingValue = calculateResultingValue(currentValue, actions);
+      const resultingAllocation = resultingValue / desiredAccountValue;
 
-    return {
-      category,
-      currentAllocation,
-      desiredAllocation,
-      allocationDifference,
-      actions,
-      resultingAllocation,
-    };
-  });
+      return {
+        category: assetClassCategory,
+        currentAllocation,
+        desiredAllocation,
+        allocationDifference,
+        actions,
+        resultingAllocation,
+      };
+    }
+  );
 }
 
 function generateAssetClassActions(

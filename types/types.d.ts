@@ -1,3 +1,5 @@
+import type { AssetClass, AssetClassCategory } from "../utils/portfolio";
+
 interface Holding {
   symbol: string;
   price: number;
@@ -13,7 +15,7 @@ interface AssetClassAction {
 }
 
 interface AssetClassInstructions {
-  category: string;
+  category: AssetClassCategory;
   currentAllocation: number;
   desiredAllocation: number;
   allocationDifference: number;

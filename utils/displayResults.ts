@@ -1,4 +1,6 @@
+import type { AssetClassInstructions, AssetClassAction } from "../types/types";
 import { formatCurrency } from "./formatCurrency";
+import { PORTFOLIO, type AssetClass } from "./portfolio";
 
 export function displayResults(
   instructions: AssetClassInstructions[],
@@ -9,41 +11,49 @@ export function displayResults(
     .flatMap((summary) => createInstructionRows(summary, desiredAccountValue))
     .sort((a, b) => a.Symbol.localeCompare(b.Symbol));
   console.table(
-    instructionsTable.reduce((acc, row) => {
-      acc[row.Category] = { ...row };
-      delete acc[row.Category].Category;
+    instructionsTable.reduce<
+      Record<string, Omit<(typeof instructionsTable)[number], "Category">>
+    >((acc, row) => {
+      const { Category, ...rowWithoutCategory } = row;
+      acc[Category] = rowWithoutCategory;
       return acc;
     }, {})
   );
 }
 
 function createInstructionRows(
-  summary: AssetClassInstructions,
+  instructions: AssetClassInstructions,
   desiredAccountValue: number
 ) {
-  const baseRow = createBaseRow(summary);
+  const baseRow = createBaseRow(instructions);
 
-  if (summary.actions.length === 0) {
-    return [{ ...baseRow, Action: "✋ No action" }];
+  if (instructions.actions.length === 0) {
+    return [{ ...baseRow, Action: "✋ No action", Symbol: "(n/a)" }];
   }
 
-  return summary.actions.map((action) =>
+  return instructions.actions.map((action) =>
     createActionRow(
       baseRow,
       action,
-      summary.desiredAllocation,
+      instructions.desiredAllocation,
       desiredAccountValue
     )
   );
 }
 
-function createBaseRow(summary: AssetClassInstructions) {
+function createBaseRow(instructions: AssetClassInstructions) {
+  const assetClass = PORTFOLIO[instructions.category];
   return {
-    Category: summary.category,
+    Category: instructions.category,
+    Holdings: `${assetClass.primarySymbol}${
+      assetClass.holdoverSymbols.length
+        ? ` (${assetClass.holdoverSymbols.join(", ")})`
+        : ""
+    }`,
     // "Primary Symbol": PORTFOLIO[summary.category].primarySymbol,
-    "Current %": Number(summary.currentAllocation.toFixed(2)),
-    "Desired %": Number(summary.desiredAllocation.toFixed(2)),
-    "Resulting %": Number(summary.resultingAllocation.toFixed(2)),
+    "Current %": Number((instructions.currentAllocation * 100).toFixed(2)),
+    "Desired %": Number((instructions.desiredAllocation * 100).toFixed(2)),
+    "Resulting %": Number((instructions.resultingAllocation * 100).toFixed(2)),
     // "Allocation Difference": `${(
     //   (summary.resultingAllocation - summary.currentAllocation) *
     //   100
@@ -52,13 +62,13 @@ function createBaseRow(summary: AssetClassInstructions) {
 }
 
 function createActionRow(
-  baseRow: any,
+  baseRow: ReturnType<typeof createBaseRow>,
   action: AssetClassAction,
   desiredAllocation: number,
   desiredAccountValue: number
 ) {
   return {
-    Symbol: action.symbol,
+    Symbol: `${action.symbol}`,
     Action: `${action.action === "BUY" ? "🟢" : "🔴"} ${action.action}`,
     Shares: Number(action.shares.toFixed(2)),
     // Price: `$${action.price.toFixed(2)}`,
