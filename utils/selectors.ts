@@ -14,9 +14,9 @@ export function findHighLevelElements() {
     getElement("[id$='CashSymbol-totalValue']") ||
     getElement(".sdps-display-value__value:nth-of-type(2)");
 
-  const positionRows = table.querySelectorAll<HTMLElement>(
-    '.position-row:not([id^="Cash"]), tr[appholdingsrow]:not([id^="Cash"])'
-  );
+  const positionRows = Array.from(
+    table.querySelectorAll<HTMLElement>('.position-row, tr[appholdingsrow]')
+  ).filter(row => !row.textContent?.includes('Cash'));
 
   return { table, accountValueElement, cashAvailableElement, positionRows };
 }
@@ -54,21 +54,66 @@ export function getPositionData(row: HTMLElement) {
   const symbolCell =
     row.querySelector<HTMLElement>(".symbolColumn") ||
     row.querySelector<HTMLElement>("app-column-symbolname");
-  if (!symbolCell || !symbolCell.textContent)
+  if (!symbolCell || !symbolCell.textContent) {
+    console.log(row);
     throw new Error("Symbol cell not found");
+  }
   const symbol = symbolCell.textContent.trim();
 
   const priceCell =
+    row.querySelector<HTMLElement>("span[title^='Price as of']")
+      ?.parentElement ||
+    row.querySelector<HTMLElement>(
+      "td.sdps-p-horizontal_xx-small.sdps-text-right span[title]"
+    )?.parentElement ||
     row.querySelector<HTMLElement>("app-column-price") ||
     row.querySelector<HTMLElement>("[id^='priceColumn']");
   if (!priceCell) throw new Error("Price cell not found");
   const price = parseCellCash(priceCell);
 
   const marketValueCell =
+    row.querySelector<HTMLElement>(
+      "td.sdps-p-horizontal_xx-small.sdps-text-right:has(app-superscript)"
+    ) ||
+    row.querySelector<HTMLElement>(
+      "td.sdps-p-horizontal_xx-small.sdps-text-right:not(:has(span[title^='Price as of']))"
+    ) ||
     row.querySelector<HTMLElement>("app-column-marketvalue") ||
     row.querySelector<HTMLElement>("[id^='marketValueColumn']");
   if (!marketValueCell) throw new Error("Market value cell not found");
   const marketValue = parseCellCash(marketValueCell);
 
-  return { symbol, price, marketValue };
+  const positionData = { symbol, price, marketValue };
+  validatePositionData(positionData);
+
+  return positionData;
+}
+
+/**
+ * Validates position data to ensure values are reasonable and consistent
+ */
+export function validatePositionData(data: {
+  symbol: string;
+  price: number;
+  marketValue: number;
+}): void {
+  const { symbol, price, marketValue } = data;
+
+  // Validate symbol format (ticker symbols are typically 1-5 uppercase letters)
+  if (!/^[A-Z0-9]{1,5}$/.test(symbol)) {
+    throw new Error(`Invalid symbol format: ${symbol}`);
+  }
+
+  // Validate price is in a reasonable range for ETFs/mutual funds
+  if (price < 10 || price > 1000) {
+    throw new Error(`Price out of reasonable range: $${price} for ${symbol}`);
+  }
+
+  // Validate market value is positive and reasonable
+  if (marketValue <= 0) {
+    throw new Error(`Invalid market value: $${marketValue} for ${symbol}`);
+  }
+
+  // Note: We don't validate price * quantity = market value
+  // because price is current price, not purchase price
 }
