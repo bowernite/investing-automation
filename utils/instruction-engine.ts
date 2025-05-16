@@ -9,7 +9,7 @@ import {
   type AssetClass,
   type AssetClassCategory,
 } from "./portfolio";
-import { isTaxableAccount } from "./selectors";
+import { isTaxableAccount } from "./selectors/account-selectors";
 
 export function generateInstructions(
   accountValue: number,
