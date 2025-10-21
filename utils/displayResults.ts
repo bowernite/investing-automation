@@ -1,6 +1,6 @@
 import type { AssetClassInstructions, AssetClassAction } from "../types/types";
 import { formatCurrency } from "./formatCurrency";
-import { PORTFOLIO, type AssetClass } from "./portfolio";
+import { PORTFOLIO } from "./portfolio";
 
 export function displayResults(
   instructions: AssetClassInstructions[],
@@ -28,7 +28,20 @@ function createInstructionRows(
   const baseRow = createBaseRow(instructions);
 
   if (instructions.actions.length === 0) {
-    return [{ ...baseRow, Action: "✋ No action", Symbol: "(n/a)" }];
+    return [
+      {
+        // NOTE: Don't just spread baseRow -- we need to specify every property explicitly to ensure the table columns are logged in the correct order
+        Symbol: "(n/a)",
+        Action: "✋ No action",
+        Shares: 0,
+        Amount: "$0.00",
+        Holdings: baseRow.Holdings,
+        "Current %": baseRow["Current %"],
+        "Desired %": baseRow["Desired %"],
+        "Resulting %": baseRow["Resulting %"],
+        Category: baseRow.Category,
+      },
+    ];
   }
 
   return instructions.actions.map((action) =>
@@ -64,18 +77,19 @@ function createBaseRow(instructions: AssetClassInstructions) {
 function createActionRow(
   baseRow: ReturnType<typeof createBaseRow>,
   action: AssetClassAction,
-  desiredAllocation: number,
-  desiredAccountValue: number
+  _desiredAllocation: number,
+  _desiredAccountValue: number
 ) {
   return {
+    // NOTE: Don't just spread baseRow -- we need to specify every property explicitly to ensure the table columns are logged in the correct order
     Symbol: `${action.symbol}`,
     Action: `${action.action === "BUY" ? "🟢" : "🔴"} ${action.action}`,
     Shares: Number(action.shares.toFixed(2)),
-    // Price: `$${action.price.toFixed(2)}`,
     Amount: formatCurrency(action.amount),
-    // "Target Allocation": formatCurrency(
-    //   desiredAllocation * desiredAccountValue
-    // ),
-    ...baseRow,
+    Holdings: baseRow.Holdings,
+    "Current %": baseRow["Current %"],
+    "Desired %": baseRow["Desired %"],
+    "Resulting %": baseRow["Resulting %"],
+    Category: baseRow.Category,
   };
 }
