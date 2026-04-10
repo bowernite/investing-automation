@@ -3,19 +3,20 @@
  */
 
 /**
- * Maps table headers to their column indices for more robust selection
+ * Get the cell in a data row that corresponds to a given header column.
+ *
+ * Works by matching child indices: the header row and data rows have the same
+ * number of children in the same order (sentinel, symbol, name, qty, price, ...),
+ * even though data rows use <th> for some and <td> for others. This is more
+ * robust than index-mapping because it doesn't depend on counting <td> vs <th>.
  */
-export function getTableColumnMap(table: HTMLElement): Map<string, number> {
-  const headerMap = new Map<string, number>();
-  const headers = Array.from(table.querySelectorAll('th[scope="col"]'));
-  
-  // Map exact header text to column index
-  headers.forEach((header, index) => {
-    const text = header.textContent?.trim();
-    if (text) {
-      headerMap.set(text, index);
-    }
-  });
-  
-  return headerMap;
-} 
+export function getColumnCell(table: HTMLElement, row: HTMLElement, headerId: string): HTMLElement | null {
+  const header = table.querySelector<HTMLElement>(`#${headerId}`);
+  if (!header?.parentElement) return null;
+
+  const headerIndex = Array.from(header.parentElement.children).indexOf(header);
+  if (headerIndex < 0) return null;
+
+  const cell = row.children[headerIndex] as HTMLElement | undefined;
+  return cell || null;
+}
